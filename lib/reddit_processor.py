@@ -1,7 +1,10 @@
 import logging
+import pathlib
 from urllib.parse import urlparse
 
 import requests
+
+from lib.redgif import RedGifs
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +28,8 @@ class RedditProcessor:
         self.processed_posts = self._load_processed_posts()
         self.images_dir = os.path.join(self.output_dir, "images")
         self.reddit = None
+
+        self.redgifs = RedGifs()
 
         assert self.client_id is not None
         assert self.client_secret is not None
@@ -127,8 +132,30 @@ class RedditProcessor:
             fp.write(f'{id}\n')
         self.processed_posts.add(id)
 
+    def get_filename(self,url):
+        fragment_removed = url.split("#")[0]  # keep to left of first #
+        query_string_removed = fragment_removed.split("?")[0]
+        scheme_removed = query_string_removed.split("://")[-1].split(":")[-1]
+        if scheme_removed.find("/") == -1:
+            return ""
+        return os.path.basename(scheme_removed)
+
+    def get_actual_url(self, post):
+        url = post.url
+
+        if "i.redgifs.com" in url:
+            url = self.redgifs.get_actual_file(url)
+        #     filename = self.get_filename(url)
+        #     ext = pathlib.Path(filename).suffix
+        #     stem =  pathlib.Path(filename).stem
+        #
+        #     url = f"https://files.redgifs.com/{stem}-large{ext}"
+        #     log.info("Converted {post.url} to {url}")
+
+        return url
+
     def download_file(self, post):
-        image_url = post.url
+        image_url = self.get_actual_url(post)
         # image_filename = self.sanitize_filename(image_url.split("/")[-1])
         # image_path = os.path.join(self.images_dir, image_filename)
 

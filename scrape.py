@@ -10,7 +10,7 @@ def get_arguments():
     parser = argparse.ArgumentParser()
 
     # Allow only sunreddit or username to be pulled
-    group = parser.add_mutually_exclusive_group()
+    group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-s", "--subreddit", help="Subreddit name", type=str)
     group.add_argument("-u","--username", help="Subreddit user", type=str)
 
@@ -27,7 +27,6 @@ def get_arguments():
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-
     args = get_arguments()
     processor = RedditProcessor(args.output_dir)
 
