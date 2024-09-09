@@ -8,7 +8,11 @@ import pathlib
 
 import requests
 
+"""
+Class RegGifs
+Handles processing files from redgifs.com.  
 
+"""
 class RedGifs:
     def __init__(self):
         pass
@@ -21,41 +25,39 @@ class RedGifs:
             return ""
         return os.path.basename(scheme_removed)
 
+    # Get's the actual file from a watch url
+    # TODO: Replace with call to redgifs API
     def get_actual_file(self, url):
         filename = self.get_filename(url)
-        ext = pathlib.Path(filename).suffix
         stem = pathlib.Path(filename).stem
 
-        #  https://i.redgifs.com/i/bubblydecentsidewinder.jpg
-        # https://www.redgifs.com/watch/brownembellishedbandicoot
+        # Get the page from watch
         watch_url = f"https://www.redgifs.com/watch/{stem}"
         req =  requests.get(watch_url)
-        # log.info(f"Req: {req}")
+
+        # Return the actual url to the file
         if req.status_code == 200:
-            small_url = self.parse_content(req.text)
-            return small_url
+            return self.parse_content(req.text)
         else:
             return None
 
+    # Simple function that finds text
+    #   href="https://files.redgifs.com/<filename>-small.<ext>"
+    #   And converts it to ="https://files.redgifs.com/<filename>-large.<ext>"
     def parse_content(self, text):
-        # print(text)
         loc = text.find('href="https://files.redgifs.com')
         text = text[loc:]
 
-        # print(text)
+        # Get the URL between the double quotes
         start = text.find('"')
-        # print(f"ENd: {start}")
         text = text[start+1:]
-        # print(f"text: {text}")
         end = text.find('"')
-        # print(text[:end])
         url = text[:end]
-
         # print(f"URL: {url}")
 
+        # strip off -small and replace it with -large
         ext = pathlib.Path(url).suffix
         small = f"-small{ext}"
-        # print(f"small: {small}")
         if url.endswith(small):
             url = url[:len(url)-len(small)] + f"-large{ext}"
             return url
