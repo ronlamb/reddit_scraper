@@ -25,7 +25,9 @@ class RedditProcessor:
         self.client_password = os.getenv("client_password", None)
         self.output_dir= output_dir
         self.processed_files = os.path.join(self.output_dir, "processed.txt")
-        self.processed_posts = self._load_processed_posts()
+        self.errored_files = os.path.join(self.output_dir, "errored.txt")
+        self.processed_posts = self._load_posts_file(self.processed_files)
+        self.errored_posts = self._load_posts_file(self.errored_files)
         self.images_dir = os.path.join(self.output_dir, "images")
         self.reddit = None
 
@@ -55,17 +57,17 @@ class RedditProcessor:
 
         # print(self.reddit.user.me())
 
-    def _load_processed_posts(self):
+    def _load_posts_file(self, filename):
         """
         Loads IDs of previously processed posts from a file.
 
-        :param filename: File containing the IDs
         :return: Set of post IDs
         """
-        if not os.path.exists(self.processed_files):
+        if not os.path.exists(filename):
             return set()
-        with open(self.processed_files, 'r') as file:
+        with open(filename, 'r') as file:
             return set(file.read().splitlines())
+
 
     def _get_subreddit_images(self, subreddit_name, listing_type='top', time_filter='all'):
         """
@@ -87,7 +89,7 @@ class RedditProcessor:
             posts = posts_method[listing_type](limit=None)
 
         for post in posts:
-            log.info(f"post: {post}")
+            # log.info(f"post: {post}")
             if post.id not in self.processed_posts and post.url.endswith(('jpg', 'jpeg', 'png', 'gif', 'webp')):
                 yield post
 
@@ -96,7 +98,6 @@ class RedditProcessor:
         Generator function to get image posts from a subreddit.
 
         :param username: Name of the subreddit
-        :param processed_list: Set of post IDs that have been processed
         :param listing_type: Type of listing to fetch (e.g., 'hot', 'new', 'top')
         :param time_filter: Time filter for posts (e.g., 'day', 'week', 'month')
         :yield: posts with images
@@ -111,10 +112,10 @@ class RedditProcessor:
             posts = posts_method[listing_type](limit=None)
 
         for post in posts:
-            if post.id not in self.processed_posts and hasattr(post, 'url') and post.url.endswith(('jpg', 'jpeg', 'png', 'gif', 'webp')):
+            if post.id not in self.processed_posts and post.id not in self.errored_posts and hasattr(post, 'url') and post.url.endswith(('jpg', 'jpeg', 'png', 'gif', 'webp')):
                 yield post
 
-    def sanitize_filename(self,filename):
+    def sanitize_filename(self, filename):
         """
         Sanitizes the filename by removing or replacing characters that are invalid for file names.
 
@@ -132,6 +133,11 @@ class RedditProcessor:
             fp.write(f'{id}\n')
         self.processed_posts.add(id)
 
+    def add_to_errored_file(self, id):
+        with open(self.errored_files, 'a') as fp:
+            fp.write(f'{id}\n')
+        self.errored_posts.add(id)
+
     def get_filename(self,url):
         fragment_removed = url.split("#")[0]  # keep to left of first #
         query_string_removed = fragment_removed.split("?")[0]
@@ -145,19 +151,11 @@ class RedditProcessor:
 
         if "i.redgifs.com" in url:
             url = self.redgifs.get_actual_file(url)
-        #     filename = self.get_filename(url)
-        #     ext = pathlib.Path(filename).suffix
-        #     stem =  pathlib.Path(filename).stem
-        #
-        #     url = f"https://files.redgifs.com/{stem}-large{ext}"
-        #     log.info("Converted {post.url} to {url}")
 
         return url
 
     def download_file(self, post):
         image_url = self.get_actual_url(post)
-        # image_filename = self.sanitize_filename(image_url.split("/")[-1])
-        # image_path = os.path.join(self.images_dir, image_filename)
 
         try:
             log.info(f"Downloading url: {image_url}")
@@ -166,15 +164,22 @@ class RedditProcessor:
                 # ext = response.headers['Content-Type'].split('/')[1]
                 filename = os.path.basename(urlparse(image_url).path)
                 file_path = os.path.join(self.images_dir, filename)
-                with open(file_path, 'wb') as f:
-                    f.write(response.content)
-                print(f"Downloaded {file_path}")
+
+                # Check if file exists before writing
+                if pathlib.Path(file_path).is_file():
+                    log.debug(f"File {filename} already downloaded")
+                else:
+                    with open(file_path, 'wb') as f:
+                        f.write(response.content)
+                    print(f"Downloaded {file_path}")
                 self.add_to_processed_file(post.id)
             else:
                 print(f"Failed to download {image_url}: Non-image or bad status code {response.status_code}")
-                self.add_to_processed_file(post.id)
+                self.add_to_errored_file(post.id)
+
         except requests.exceptions.RequestException as e:
             print(f"Error downloading {image_url}: {e}")
+            self.add_to_errored_file(post.id)
 
     def download_user_files(self, username):
         self.login()
