@@ -1,0 +1,5 @@
+.idea/
+.env
+lib/__pycache__
+output/
+#requirements.txt
