@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 from lib.processed_status import ProcessedStatus
 from lib.redgif import RedGifs
 
-
 import praw
 import os
 import dotenv
