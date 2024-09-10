@@ -15,12 +15,14 @@ The dictionary is setup as follows
     Status is one of:
         0 - DOWNLOADED
         1 - ERRORED
-        3 - SKIPPED
+        2 - SKIPPED
+        3 - DUPLICATE
 """
 class ProcessedStatus:
     DOWNLOADED = 0
     ERRORED = 1
     SKIPPED = 2
+    DUPLICATE = 3
 
     def __init__(self, output_dir):
         self.output_dir = output_dir

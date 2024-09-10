@@ -1,18 +1,32 @@
 import logging
-import pathlib
-from urllib.parse import urlparse
-
-import requests
-
-from lib.processed_status import ProcessedStatus
-from lib.redgif import RedGifs
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+import pathlib
+import hashlib
+import requests
+import shutil
+
+from urllib.parse import urlparse
+from lib.processed_status import ProcessedStatus
+from lib.redgif import RedGifs
+
+
 import praw
 import os
 import dotenv
+
+def md5hash(filename):
+    h  = hashlib.md5()
+    b  = bytearray(128*1024)
+    mv = memoryview(b)
+    with open(filename, 'rb', buffering=0) as f:
+        while n := f.readinto(mv):
+            h.update(mv[:n])
+    rval = h.hexdigest()
+    file_size = os.stat(filename).st_size
+    return rval + f":{file_size}"
 
 class RedditProcessor:
     def __init__(self, output_dir):
@@ -27,8 +41,8 @@ class RedditProcessor:
         self.output_dir= output_dir
         self.processed_status = ProcessedStatus(self.output_dir)
         self.images_dir = os.path.join(self.output_dir, "images")
+        self.duplicate_dir = os.path.join(self.output_dir, "duplicates")
         self.reddit = None
-
         self.redgifs = RedGifs()
 
         assert self.client_id is not None
@@ -42,6 +56,9 @@ class RedditProcessor:
         # Create directory if it doesn't exist
         if not os.path.exists(self.images_dir):
             os.makedirs(self.images_dir)
+
+        if not os.path.exists(self.duplicate_dir):
+            os.makedirs(self.duplicate_dir)
 
     def login(self):
         self.reddit = praw.Reddit(
@@ -150,8 +167,20 @@ class RedditProcessor:
                 else:
                     with open(file_path, 'wb') as f:
                         f.write(response.content)
-                    print(f"Downloaded {file_path}")
-                self.processed_status.set_status(post.id, ProcessedStatus.DOWNLOADED, filename)
+
+                    md5_hash = md5hash(file_path)
+
+                    if md5_hash in self.processed_status.hashes:
+                        status = ProcessedStatus.DUPLICATE
+                        dup_name = os.path.join(self.duplicate_dir, filename)
+                        shutil.move(file_path, dup_name)
+                        log.info(f"Duplicate file {filename} moved to duplicates directory")
+                    else:
+                        status = ProcessedStatus.DOWNLOADED
+                        log.info(f"Downloaded {filename}")
+
+                    self.processed_status.hashes.add(md5_hash)
+                    self.processed_status.set_status(post.id, status, filename, md5_hash)
             else:
                 print(f"Failed to download {image_url}: Non-image or bad status code {response.status_code}")
                 self.processed_status.set_status(post.id, ProcessedStatus.ERRORED)
