@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 import requests
 
+from lib.processed_status import ProcessedStatus
 from lib.redgif import RedGifs
 
 log = logging.getLogger(__name__)
@@ -11,8 +12,8 @@ logging.basicConfig(level=logging.INFO)
 
 import praw
 import os
-
 import dotenv
+
 class RedditProcessor:
     def __init__(self, output_dir):
         dotenv.load_dotenv()
@@ -24,10 +25,7 @@ class RedditProcessor:
         self.client_username = os.getenv("client_username", None)
         self.client_password = os.getenv("client_password", None)
         self.output_dir= output_dir
-        self.processed_files = os.path.join(self.output_dir, "processed.txt")
-        self.errored_files = os.path.join(self.output_dir, "errored.txt")
-        self.processed_posts = self._load_posts_file(self.processed_files)
-        self.errored_posts = self._load_posts_file(self.errored_files)
+        self.processed_status = ProcessedStatus(self.output_dir)
         self.images_dir = os.path.join(self.output_dir, "images")
         self.reddit = None
 
@@ -57,21 +55,12 @@ class RedditProcessor:
 
         # print(self.reddit.user.me())
 
-    def _load_posts_file(self, filename):
-        """
-        Loads IDs of previously processed posts from a file.
-
-        :return: Set of post IDs
-        """
-        if not os.path.exists(filename):
-            return set()
-        with open(filename, 'r') as file:
-            return set(file.read().splitlines())
-
+    def is_image(self, post):
+        return post.url.endswith(('jpg', 'jpeg', 'png', 'gif', 'webp'))
 
     def _get_subreddit_images(self, subreddit_name, listing_type='top', time_filter='all'):
         """
-        Generator function to get image posts from a subreddit.
+        Generator function to get image posts from a subreddit, filtered by
 
         :param subreddit_name: Name of the subreddit
         :param listing_type: Type of listing to fetch (e.g., 'hot', 'new', 'top')
@@ -90,7 +79,7 @@ class RedditProcessor:
 
         for post in posts:
             # log.info(f"post: {post}")
-            if post.id not in self.processed_posts and post.url.endswith(('jpg', 'jpeg', 'png', 'gif', 'webp')):
+            if self.processed_status.have_not_seen(post) and self.is_image(post):
                 yield post
 
     def _get_user_images(self, username, listing_type='new', time_filter='all'):
@@ -112,7 +101,7 @@ class RedditProcessor:
             posts = posts_method[listing_type](limit=None)
 
         for post in posts:
-            if post.id not in self.processed_posts and post.id not in self.errored_posts and hasattr(post, 'url') and post.url.endswith(('jpg', 'jpeg', 'png', 'gif', 'webp')):
+            if self.processed_status.have_not_seen(post) and hasattr(post, 'url') and self.is_image(post):
                 yield post
 
     def sanitize_filename(self, filename):
@@ -127,16 +116,6 @@ class RedditProcessor:
         for char in invalid_chars:
             filename = filename.replace(char, '_')
         return filename
-
-    def add_to_processed_file(self, id):
-        with open(self.processed_files, 'a') as fp:
-            fp.write(f'{id}\n')
-        self.processed_posts.add(id)
-
-    def add_to_errored_file(self, id):
-        with open(self.errored_files, 'a') as fp:
-            fp.write(f'{id}\n')
-        self.errored_posts.add(id)
 
     def get_filename(self,url):
         fragment_removed = url.split("#")[0]  # keep to left of first #
@@ -172,14 +151,14 @@ class RedditProcessor:
                     with open(file_path, 'wb') as f:
                         f.write(response.content)
                     print(f"Downloaded {file_path}")
-                self.add_to_processed_file(post.id)
+                self.processed_status.set_status(post.id, ProcessedStatus.DOWNLOADED, filename)
             else:
                 print(f"Failed to download {image_url}: Non-image or bad status code {response.status_code}")
-                self.add_to_errored_file(post.id)
+                self.processed_status.set_status(post.id, ProcessedStatus.ERRORED)
 
         except requests.exceptions.RequestException as e:
             print(f"Error downloading {image_url}: {e}")
-            self.add_to_errored_file(post.id)
+            self.processed_status.set_status(post.id, ProcessedStatus.ERRORED)
 
     def download_user_files(self, username):
         self.login()
@@ -189,7 +168,7 @@ class RedditProcessor:
            self.download_file(post)
            cnt_downloaded += 1
 
-
+        self.processed_status.save_processed_file()
     def download_subreddit(self, subreddit):
         self.login()
         log.info(f"Downloading from subreddir: {subreddit} to {self.output_dir}")
@@ -197,4 +176,6 @@ class RedditProcessor:
         for post in self._get_subreddit_images(subreddit, 'new'):
             self.download_file(post)
             cnt_downloaded += 1
+
+        self.processed_status.save_processed_file()
 
