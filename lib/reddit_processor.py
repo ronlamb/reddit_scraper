@@ -32,25 +32,12 @@ class RedditProcessor:
         dotenv.load_dotenv()
         log.info("Reading environment file")
 
-        self.agent_name = os.getenv('agent_name')
-        self.client_id = os.getenv("client_id", None)
-        self.client_secret = os.getenv("client_secret", None)
-        self.client_username = os.getenv("client_username", None)
-        self.client_password = os.getenv("client_password", None)
         self.output_dir= output_dir
         self.processed_status = ProcessedStatus(self.output_dir)
         self.images_dir = os.path.join(self.output_dir, "images")
         self.duplicate_dir = os.path.join(self.output_dir, "duplicates")
         self.reddit = None
         self.redgifs = RedGifs()
-
-        assert self.client_id is not None
-        assert self.client_secret is not None
-        assert self.client_username is not None
-        assert self.client_password is not None
-        assert self.agent_name is not None
-
-        self.user_agent=f"{self.agent_name} /u/{self.client_username}"
 
         # Create directory if it doesn't exist
         if not os.path.exists(self.images_dir):
@@ -60,16 +47,28 @@ class RedditProcessor:
             os.makedirs(self.duplicate_dir)
 
     def login(self):
+        # Retrieve login info from environment
+        agent_name = os.getenv('agent_name')
+        client_id = os.getenv("client_id", None)
+        client_secret = os.getenv("client_secret", None)
+        client_username = os.getenv("client_username", None)
+        client_password = os.getenv("client_password", None)
+
+        assert client_id is not None
+        assert client_secret is not None
+        assert client_username is not None
+        assert client_password is not None
+        assert agent_name is not None
+        user_agent=f"{agent_name} /u/{client_username}"
+
         self.reddit = praw.Reddit(
-            user_agent=self.user_agent,
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-            username=self.client_username,
-            password=self.client_password,
+            user_agent=user_agent,
+            client_id=client_id,
+            client_secret=client_secret,
+            username=client_username,
+            password=client_password,
             requestor_kwargs={'timeout': 30}
         )
-
-        # print(self.reddit.user.me())
 
     def is_image(self, post):
         return post.url.endswith(('jpg', 'jpeg', 'png', 'gif', 'webp'))
@@ -83,7 +82,7 @@ class RedditProcessor:
         :param time_filter: Time filter for posts (e.g., 'day', 'week', 'month')
         :yield: posts with images
         """
-        log.info(f"Checking subreddit {subreddit_name}")
+        log.info(f"Checking subreddit {subreddit_name} for type {listing_type}")
         subreddit = self.reddit.subreddit(subreddit_name)
         posts_method = {'hot': subreddit.hot, 'new': subreddit.new, 'top': subreddit.top,
                         'rising': subreddit.rising, 'controversial': subreddit.controversial}
@@ -192,18 +191,25 @@ class RedditProcessor:
         self.login()
         log.info(f"Downloading from user: {username} to {self.output_dir}")
         cnt_downloaded = 0
-        for post in self._get_user_images(username):
-           self.download_file(post)
-           cnt_downloaded += 1
+
+        listings = [ 'hot', 'new' ]
+        for listing in listings:
+            for post in self._get_user_images(username, listing_type = listing):
+                self.download_file(post)
+                cnt_downloaded += 1
 
         self.processed_status.save_processed_file()
+
     def download_subreddit(self, subreddit):
         self.login()
         log.info(f"Downloading from subreddir: {subreddit} to {self.output_dir}")
         cnt_downloaded = 0
-        for post in self._get_subreddit_images(subreddit, 'new'):
-            self.download_file(post)
-            cnt_downloaded += 1
+
+        listings = ['hot', 'new', 'rising' ]
+        for listing in listings:
+            for post in self._get_subreddit_images(subreddit, listing_type = listing):
+                self.download_file(post)
+                cnt_downloaded += 1
 
         self.processed_status.save_processed_file()
 

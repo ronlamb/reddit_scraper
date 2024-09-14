@@ -53,7 +53,6 @@ class RedGifs:
         text = text[start+1:]
         end = text.find('"')
         url = text[:end]
-        # print(f"URL: {url}")
 
         # strip off -small and replace it with -large
         ext = pathlib.Path(url).suffix

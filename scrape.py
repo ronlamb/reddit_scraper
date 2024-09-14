@@ -1,5 +1,4 @@
-#  Main image scraper process
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+# Main image scraper process
 import argparse
 import os
 
@@ -34,4 +33,4 @@ if __name__ == '__main__':
         processor.download_user_files(args.username)
     else:
         processor.download_subreddit(args.subreddit)
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+

@@ -25,8 +25,7 @@ class ProcessedStatus:
     DUPLICATE = 3
 
     def __init__(self, output_dir):
-        self.output_dir = output_dir
-        self.processed_file = os.path.join(self.output_dir, "processed.pkl")
+        self.processed_file = os.path.join(output_dir, "processed.pkl")
         self.processed = self.load_processed_file()
         self.hashes = set()
 
@@ -46,7 +45,6 @@ class ProcessedStatus:
 
     def have_not_seen(self, post):
         return post.id not in self.processed
-        # return post.id not in self.processed_posts and post.id not in self.errored_posts
 
     def set_status(self, id, status, filename=None, hash=None):
         self.processed[id] = ( status, filename, hash )
