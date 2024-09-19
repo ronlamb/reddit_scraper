@@ -2,4 +2,5 @@
 .env
 lib/__pycache__
 output/
+venv/
 #requirements.txt

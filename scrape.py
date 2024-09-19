@@ -1,5 +1,4 @@
-#  Main image scraper process
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+# Main image scraper process
 import argparse
 import os
 
@@ -10,7 +9,7 @@ def get_arguments():
     parser = argparse.ArgumentParser()
 
     # Allow only sunreddit or username to be pulled
-    group = parser.add_mutually_exclusive_group()
+    group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("-s", "--subreddit", help="Subreddit name", type=str)
     group.add_argument("-u","--username", help="Subreddit user", type=str)
 
@@ -27,7 +26,6 @@ def get_arguments():
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-
     args = get_arguments()
     processor = RedditProcessor(args.output_dir)
 
@@ -35,4 +33,4 @@ if __name__ == '__main__':
         processor.download_user_files(args.username)
     else:
         processor.download_subreddit(args.subreddit)
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+
