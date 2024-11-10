@@ -48,6 +48,7 @@ class RedGifs:
         loc = text.find('href="https://files.redgifs.com')
         text = text[loc:]
 
+        # log.info(f"Text:{text}")
         # Get the URL between the double quotes
         start = text.find('"')
         text = text[start+1:]
@@ -60,6 +61,15 @@ class RedGifs:
         if url.endswith(small):
             url = url[:len(url)-len(small)] + f"-large{ext}"
             return url
+
+        # Next try to find /files/
+        loc = text.find('/files/')
+        text = text[loc+7:]
+        quot = text.find('"')
+
+        fname = text[:quot]
+        if "-large" in fname:
+            return f"https://files.redgifs.com/{fname}"
 
         return None
 
