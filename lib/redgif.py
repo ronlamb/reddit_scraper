@@ -46,7 +46,6 @@ class RedGifs:
         loc = text.find(iurl)
         text = text[loc:]
 
-        log.info(f"Text:{text}")
         # Get the URL between the double quotes
         start = text.find('"')
         text = text[start+1:]
@@ -76,7 +75,6 @@ class RedGifs:
         loc = text.find(iurl)
         text = text[loc:]
 
-        log.info(f"Text:{text}")
         # Get the URL between the double quotes
         # start = text.find('"')
         # text = text[start+1:]
@@ -105,6 +103,7 @@ class RedGifs:
     #   href="https://files.redgifs.com/<filename>-small.<ext>"
     #   And converts it to ="https://files.redgifs.com/<filename>-large.<ext>"
     def parse_content(self, itext):
+        # log.info(f"Text:{itext}")
         fname = self._parse_url("https://files.redgifs.com", itext)
         if fname is None:
             fname = self._parse_url2("https://media.redgifs.com", itext)
