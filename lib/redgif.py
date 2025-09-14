@@ -41,14 +41,12 @@ class RedGifs:
         else:
             return None
 
-    # Simple function that finds text
-    #   href="https://files.redgifs.com/<filename>-small.<ext>"
-    #   And converts it to ="https://files.redgifs.com/<filename>-large.<ext>"
-    def parse_content(self, text):
-        loc = text.find('href="https://files.redgifs.com')
+    def _parse_url(self, iurl, itext):
+        text = itext
+        loc = text.find(iurl)
         text = text[loc:]
 
-        # log.info(f"Text:{text}")
+        log.info(f"Text:{text}")
         # Get the URL between the double quotes
         start = text.find('"')
         text = text[start+1:]
@@ -72,6 +70,76 @@ class RedGifs:
             return f"https://files.redgifs.com/{fname}"
 
         return None
+
+    def _parse_url2(self, iurl, itext):
+        text = itext
+        loc = text.find(iurl)
+        text = text[loc:]
+
+        log.info(f"Text:{text}")
+        # Get the URL between the double quotes
+        # start = text.find('"')
+        # text = text[start+1:]
+        end = text.find('"')
+        url = text[:end]
+
+        # strip off -small and replace it with -large
+        ext = pathlib.Path(url).suffix
+        small = f"-small{ext}"
+        if url.endswith(small):
+            url = url[:len(url)-len(small)] + f"-large{ext}"
+            return url
+
+        # # Next try to find /files/
+        # loc = text.find('/files/')
+        # text = text[loc+7:]
+        # quot = text.find('"')
+        #
+        # fname = text[:quot]
+        # if "-large" in fname:
+        #     return f"https://files.redgifs.com/{fname}"
+
+        return None
+
+    # Simple function that finds text
+    #   href="https://files.redgifs.com/<filename>-small.<ext>"
+    #   And converts it to ="https://files.redgifs.com/<filename>-large.<ext>"
+    def parse_content(self, itext):
+        fname = self._parse_url("https://files.redgifs.com", itext)
+        if fname is None:
+            fname = self._parse_url2("https://media.redgifs.com", itext)
+
+        return fname
+        # text = itext
+        # loc = text.find('href="https://files.redgifs.com")
+        # text = text[loc:]
+        #
+        # log.info(f"Text:{text}")
+        # # Get the URL between the double quotes
+        # start = text.find('"')
+        # text = text[start+1:]
+        # end = text.find('"')
+        # url = text[:end]
+        #
+        # # strip off -small and replace it with -large
+        # ext = pathlib.Path(url).suffix
+        # small = f"-small{ext}"
+        # if url.endswith(small):
+        #     url = url[:len(url)-len(small)] + f"-large{ext}"
+        #     return url
+        #
+        # # Next try to find /files/
+        # loc = text.find('/files/')
+        # text = text[loc+7:]
+        # quot = text.find('"')
+        #
+        # fname = text[:quot]
+        # if "-large" in fname:
+        #     return f"https://files.redgifs.com/{fname}"
+        #
+        # fname = self.parse_meta(itext)
+        # return fname
+        # return None
 
 if __name__ == '__main__':
     red = RedGifs()
